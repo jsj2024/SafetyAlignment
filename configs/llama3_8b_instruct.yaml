@@ -1,0 +1,104 @@
+# HGA修复版配置文件 - 确保训练稳定性
+
+# 模型配置
+model:
+  name_or_path: "/home/models/Meta-Llama-3.1-8B-Instruct"
+  max_length: 2048
+  temperature: 0.7
+  top_p: 0.9
+  do_sample: true
+  torch_dtype: "bfloat16"  # 使用fp16节省显存
+
+# LoRA配置 - 简化参数
+lora:
+  r: 16  # 降低秩以减少显存使用
+  alpha: 32  # 对应调整alpha
+  dropout: 0.1
+  # target_modules: ["q_proj", "v_proj", "o_proj"]
+  target_modules: [
+    "up_proj",
+    "down_proj",
+    "v_proj",
+    "k_proj",
+    "gate_proj",
+    "o_proj",
+    "q_proj"
+  ]  
+
+# 训练配置 - 优化稳定性
+training:
+  num_epochs: 3
+  batch_size: 64  # 减小batch size适应2xH100
+  learning_rate: 1e-6  # 降低学习率确保稳定性
+  warmup_steps: 50
+  max_grad_norm: 0.5  # 梯度裁剪
+  weight_decay: 0.01
+  save_steps: 200
+  eval_steps: 100
+  logging_steps: 20
+  gradient_accumulation_steps: 2  # 通过梯度累积增加有效batch size
+
+# HGA博弈配置 - 理论化参数
+hga:
+  max_turns: 3  # 减少对话轮数
+  utility_threshold: 0.5
+  attacker_loss_weight: 0.3  # 攻击者损失权重
+  safety_weight: 1.0  # 安全权重
+  uselessness_weight: 0.5  # 有用性权重
+  
+  # 博弈论参数
+  nash_regularization: 0.01  # 纳什均衡正则化
+  strategy_diversity_weight: 0.1  # 策略多样性
+  convergence_threshold: 0.001  # 收敛阈值
+  
+  use_mcts: false  # 暂时禁用MCTS以简化训练
+  mcts_simulations: 10
+
+# 数据配置
+data:
+  datasets: ["BeaverTails"]  # 使用单一数据集简化
+  max_samples: 5000  # 减少样本数用于快速测试
+  train_split: 0.8
+  max_length: 1024  # 减少序列长度节省显存
+
+# 评估配置
+evaluation:
+  batch_size: 8
+  general_datasets: ["gsm8k"]  # 简化评估
+  num_dialogues_per_instruction: 1
+  max_new_tokens: 256
+  temperature: 0.7
+
+# 多GPU配置 - 简化设备管理
+multi_gpu:
+  enabled: true
+  strategy: "ddp"  # 使用DDP而不是model parallel
+  
+# 优化配置 - 理论导向
+optimization:
+  use_inpo: false  # 暂时使用标准DPO
+  use_mcts: false
+  dpo_beta: 0.1
+  reference_free: true  # 使用reference-free DPO
+
+# 内存优化
+memory_optimization:
+  gradient_checkpointing: true
+  dataloader_num_workers: 128
+  pin_memory: true
+  prefetch_factor: 2
+
+# 日志配置
+logging:
+  use_swanlab: true  
+  use_tensorboard: true
+  use_wandb: false
+  project_name: "hga-fixed"
+  experiment_name: "llama3-8b-hga-fixed"
+  log_dir: "./logs_fixed"
+
+# 安全配置
+safety:
+  max_memory_usage: 0.9  # 最大显存使用率
+  checkpoint_on_error: true
+  auto_resume: true
